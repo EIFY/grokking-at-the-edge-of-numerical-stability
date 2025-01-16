@@ -22,8 +22,9 @@
 
 </p>
 
+
 <br/>
-This is the official implementation of our paper <i>Grokking at the Edge of Numerical Stability</i>. Here you can find guidance to reproduce the main results of the paper.
+This is the official implementation of our paper <a href="https://arxiv.org/abs/2501.04697" target="_blank"><i>Grokking at the Edge of Numerical Stability</i></a> (arXiv: 2501.04697). Here you can find guidance to reproduce the main results of the paper.
 <br/>
 
 ## Replicating Our Results
