@@ -59,7 +59,7 @@ If you found this code or paper useful, please consider citing:
   title={Grokking at the Edge of Numerical Stability},
   author={Prieto, Lucas and Barsbey, Melih and Mediano, Pedro and Birdal, Tolga},
   year = {2025},
-  eprint={},
+  eprint={2501.04697},
   archivePrefix={arXiv},
   primaryClass={cs.CV}
 }
