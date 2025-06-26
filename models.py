@@ -2,13 +2,16 @@ import torch.nn as nn
 import torch
 
 class MLP(nn.Module):
-    def __init__(self, input_size, hidden_sizes, output_size, bias=True):
+    def __init__(self, input_size, hidden_sizes, output_size, vocab_size=None, bias=True, use_embedding=False):
         super(MLP, self).__init__()
         self.input_size = input_size
         self.hidden_sizes = hidden_sizes
         self.output_size = output_size
         self.activations = []
         self.activations_from_abs_input = None
+        self.embedding = None
+        if use_embedding:
+            self.embedding = nn.Embedding(vocab_size, input_size // 2)
         self.layers = nn.ModuleList()
         self.non_linearity = nn.ReLU()
         self.uses_bias = bias
@@ -18,6 +21,8 @@ class MLP(nn.Module):
             self.layers.append(nn.Linear(layer_sizes[i], layer_sizes[i+1], bias=bias))
     
     def forward(self, x, keep_activations=False):
+        if self.embedding:
+            x = self.embedding(x)
         x = x.flatten(start_dim=1)
         if keep_activations:
             self.activations = []

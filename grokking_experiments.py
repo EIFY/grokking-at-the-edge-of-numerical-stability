@@ -87,11 +87,15 @@ saved_models = {epoch: None for epoch in save_model_checkpoints}
 softmax_temperature = 1
 
 if args.full_batch:
-    all_data = train_dataset.dataset.data[train_dataset.indices].to(device).to(train_precision)
+    all_data = train_dataset.dataset.data[train_dataset.indices].to(device)
     all_targets = train_dataset.dataset.targets[train_dataset.indices].to(device).long()
 
-    all_test_data = test_dataset.dataset.data[test_dataset.indices].to(device).to(train_precision)
+    all_test_data = test_dataset.dataset.data[test_dataset.indices].to(device)
     all_test_targets = test_dataset.dataset.targets[test_dataset.indices].to(device).long()
+
+    if not (args.use_transformer or args.use_embedding):
+        all_data = all_data.to(train_precision)
+        all_test_data = all_test_data.to(train_precision)
 else:
     raise ValueError("Current implementation only supports full batch training.")
 
@@ -134,7 +138,7 @@ for epoch in range(args.num_epochs):
         start_time = time.time()
 
 model.eval().to('cpu')
-test_loss, test_accuracy = evaluate(model, test_loader)
+test_loss, test_accuracy = evaluate(model, test_loader, use_embedding=args.use_transformer or args.use_embedding)
 print(f'Test set: Average loss: {test_loss:.4f}, Accuracy: {test_accuracy:.2f}')
 args.lr = args.lr
 

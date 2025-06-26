@@ -12,7 +12,7 @@ from binary_operations import (product_mod,
                                add_mod,
                                subtract_mod)
 from constants import  FLOAT_PRECISION_MAP
-
+from talon import Scion
 
 
 def one_hot_encode(number, size):
@@ -84,7 +84,7 @@ def update_results(filename, experiment_key, logger_metrics):
     results[experiment_key] = logger_metrics
     torch.save(results, filename)
 
-def evaluate(model, data_loader, loss_function=cross_entropy_float64):
+def evaluate(model, data_loader, loss_function=cross_entropy_float64, use_embedding=False):
     model.eval()
     loss = 0
     correct = 0
@@ -93,7 +93,10 @@ def evaluate(model, data_loader, loss_function=cross_entropy_float64):
     with torch.no_grad():
         for data, target, *_ in data_loader:
             label_argmax = len(target.shape)!=1
-            output = model(data.to(device).to(float_precision)).to("cpu")
+            data = data.to(device)
+            if not use_embedding:
+                data = data.to(float_precision)
+            output = model(data).to("cpu")
             if isinstance(model, Transformer):
                 output = output[:,-1]
             loss += loss_function(output, target).item()
@@ -124,7 +127,7 @@ def split_dataset(dataset, train_fraction, batch_size):
     total_size = len(dataset)
     train_size = int(train_fraction * total_size)
     test_size = total_size - train_size
-    print(f'Starting trining. Train dataset size: {train_size}, Test size: {test_size}')
+    print(f'Starting training. Train dataset size: {train_size}, Test size: {test_size}')
     train_dataset, test_dataset = random_split(dataset, [train_size, test_size])
     return train_dataset, test_dataset
 
@@ -149,11 +152,11 @@ def get_dataset(args):
     elif args.dataset == "binary_alg":
         dataset = BinaryAlgorithmicDataset(BINARY_OPERATION_MAP[args.binary_operation], p=args.modulo, input_size=args.input_size, output_size=args.modulo)
     else: 
-        if args.use_transformer:
+        if args.use_transformer or args.use_embedding:
             dataset = AlgorithmicDatasetTransformer(BINARY_OPERATION_MAP[args.binary_operation], p=args.modulo, input_size=args.input_size, output_size=args.modulo)
         else:
             dataset = AlgorithmicDataset(BINARY_OPERATION_MAP[args.binary_operation], p=args.modulo, input_size=args.input_size, output_size=args.modulo)
-    
+
     train_dataset, test_dataset = split_dataset(dataset, args.train_fraction, args.batch_size)
 
     return train_dataset, test_dataset
@@ -184,7 +187,7 @@ def get_model(args):
             model = Transformer(d_model=128, num_heads=4, num_layers=1, vocab_size=113, seq_len=2)
         else:
             model = MLP(input_size=args.input_size*2, output_size=args.modulo, hidden_sizes=args.hidden_sizes
-                    , bias=False).to(device).to(FLOAT_PRECISION_MAP[args.train_precision])
+                    , vocab_size=113, bias=False, use_embedding=args.use_embedding).to(device).to(FLOAT_PRECISION_MAP[args.train_precision])
     return model
         
 def get_optimizer(model, args):
@@ -194,6 +197,38 @@ def get_optimizer(model, args):
         optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay, eps=args.adam_epsilon, betas=(0.9, args.beta2))
     elif args.optimizer == "SGD":
         optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=0.2, weight_decay=0)
+    elif args.optimizer == "Scion":
+
+        embedding = []
+        hidden = []
+        output = []
+
+        for n, p in model.named_parameters():
+            if 'embedding' in n:
+                embedding.append(p)
+            elif n.endswith('linear.weight') or (
+                'layers' in n and n.endswith('.weight') and str(len(getattr(model, 'layers', [])) - 1) in n):
+                output.append(p)
+            else:
+                hidden.append(p)
+
+        optim_groups = [{
+            'params': embedding,
+            'norm': 'ColNorm',
+            'scale': args.non_sign_radius,
+        }, {
+            'params': hidden,
+            'norm': 'Auto', # Picks layerwise norm based on the parameter shape
+            'scale': args.non_sign_radius,
+        }, {
+            'params': output,
+            'norm': 'Sign',
+            'norm_kwargs': {'zero_init': True},
+            'scale': args.sign_radius,
+        }]
+
+        optimizer = Scion(optim_groups, lr=args.lr, momentum=0.1, unconstrained=True)
+        optimizer.init()
     else: 
         raise ValueError(f'Unsupported optimizer type: {args.optimizer}')
     return optimizer
@@ -219,7 +254,13 @@ def parse_args():
                         help='Input size for the model. Default is 113.')
 
     parser.add_argument('--optimizer', type=str, default='AdamW',
-                        help='Optimizer to use. Options: AdamW, Adam, SGD. Default is AdamW.')
+                        help='Optimizer to use. Options: AdamW, Adam, SGD, Scion. Default is AdamW.')
+
+    parser.add_argument('--non_sign_radius', type=float, default=1.,
+                        help='Radius for layers not configured with sign norm (i.e. embedding or hidden)')
+
+    parser.add_argument('--sign_radius', type=float, default=20.,
+                        help='Radius for layer configured with sign norm (i.e. last layer)')
 
     parser.add_argument('--loss_function', type=str, default='cross_entropy',
                         help='Loss function to use. Options: stablemax, cross_entropy. Default is cross_entropy.')
@@ -283,7 +324,10 @@ def parse_args():
     
     parser.add_argument('--use_transformer', action='store_true', default=False,
                         help='Use one layer transformer')
-    
+
+    parser.add_argument('--use_embedding', action='store_true', default=False,
+                        help='Use trainable embedding instead of one-hot encoding for MLP')
+
     parser.add_argument('--device', type=str, default="cpu",
                         help='Device')
     parser.add_argument('--beta2', type=float, default=0.99,
