@@ -215,6 +215,7 @@ def get_optimizer(model, args):
         optim_groups = [{
             'params': embedding,
             'norm': 'ColNorm',
+            'norm_kwargs': {'transpose': True},
             'scale': args.non_sign_radius,
         }, {
             'params': hidden,
