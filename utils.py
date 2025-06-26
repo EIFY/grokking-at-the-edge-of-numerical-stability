@@ -184,7 +184,7 @@ def get_model(args):
     else:
         print("Using AlgorithmicDataset")
         if args.use_transformer:
-            model = Transformer(d_model=128, num_heads=4, num_layers=1, vocab_size=113, seq_len=2)
+            model = Transformer(d_model=128, num_heads=4, num_layers=1, vocab_size=113, seq_len=2, norm_first=args.use_pre_norm)
         else:
             model = MLP(input_size=args.input_size*2, output_size=args.modulo, hidden_sizes=args.hidden_sizes
                     , vocab_size=113, bias=False, use_embedding=args.use_embedding).to(device).to(FLOAT_PRECISION_MAP[args.train_precision])
@@ -325,6 +325,9 @@ def parse_args():
     
     parser.add_argument('--use_transformer', action='store_true', default=False,
                         help='Use one layer transformer')
+
+    parser.add_argument('--use_pre_norm', action='store_true', default=False,
+                        help='Use pre-norm transformer')
 
     parser.add_argument('--use_embedding', action='store_true', default=False,
                         help='Use trainable embedding instead of one-hot encoding for MLP')

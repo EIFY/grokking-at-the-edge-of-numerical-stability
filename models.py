@@ -34,17 +34,16 @@ class MLP(nn.Module):
     
 
 class Transformer(nn.Module):
-    def __init__(self, d_model, num_heads, num_layers, vocab_size, seq_len):
+    def __init__(self, d_model, num_heads, num_layers, vocab_size, seq_len, norm_first=False):
         super().__init__()
         self.embedding = nn.Embedding(vocab_size, d_model)
-        encoder_layer = nn.TransformerEncoderLayer(d_model, num_heads)
+        encoder_layer = nn.TransformerEncoderLayer(d_model, num_heads, batch_first=True, norm_first=norm_first)
         self.transformer = nn.TransformerEncoder(encoder_layer, num_layers)
         self.linear = nn.Linear(d_model, vocab_size)
 
     def forward(self, x):
-        x_emb = self.embedding(x.long())
-        x_emb = x_emb.transpose(0, 1)
+        x_emb = self.embedding(x)
         out = self.transformer(x_emb)
-        out = self.linear(out.transpose(0, 1))
+        out = self.linear(out)
         return out
     
