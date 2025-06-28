@@ -228,7 +228,7 @@ def get_optimizer(model, args):
             'scale': args.sign_radius,
         }]
 
-        optimizer = Scion(optim_groups, lr=args.lr, momentum=0.1, unconstrained=True)
+        optimizer = Scion(optim_groups, lr=args.lr, momentum=0.1, unconstrained=not args.constrained)
         optimizer.init()
     else: 
         raise ValueError(f'Unsupported optimizer type: {args.optimizer}')
@@ -256,6 +256,9 @@ def parse_args():
 
     parser.add_argument('--optimizer', type=str, default='AdamW',
                         help='Optimizer to use. Options: AdamW, Adam, SGD, Scion. Default is AdamW.')
+
+    parser.add_argument('--constrained', action='store_true', default=False,
+                        help='Use constrained Scion instead of unconstrained Scion')
 
     parser.add_argument('--non_sign_radius', type=float, default=1.,
                         help='Radius for layers not configured with sign norm (i.e. embedding or hidden)')
