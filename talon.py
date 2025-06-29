@@ -190,20 +190,20 @@ class Spectral(Norm):
 
 
 class Sign(Norm):
-    def __init__(self, zero_init=False, normalized=True):
-        self.zero_init = zero_init
+    def __init__(self, init_val=None, normalized=True):
+        self.init_val = init_val
         self.normalized = normalized
 
     def lmo(self, g):
-        d_out, d_in = g.shape
         if self.normalized:
+            d_out, d_in = g.shape
             return (1/d_in)*torch.sign(g)    
         else:
             return torch.sign(g)
 
     def init(self, w):
-        if self.zero_init:
-            torch.nn.init.zeros_(w)
+        if self.init_val is not None:
+            torch.nn.init.constant_(w, self.init_val)
         else:
             # Generate -1/fan_in or 1/fan_in uniformly at random
             d_out, d_in = w.shape

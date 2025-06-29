@@ -202,6 +202,7 @@ def get_optimizer(model, args):
         embedding = []
         hidden = []
         output = []
+        ln_weight = []
 
         for n, p in model.named_parameters():
             if 'embedding' in n:
@@ -209,6 +210,8 @@ def get_optimizer(model, args):
             elif n.endswith('linear.weight') or (
                 'layers' in n and n.endswith('.weight') and str(len(getattr(model, 'layers', [])) - 1) in n):
                 output.append(p)
+            elif 'norm' in n and n.endswith('.weight'):
+                ln_weight.append(p)
             else:
                 hidden.append(p)
 
@@ -222,9 +225,14 @@ def get_optimizer(model, args):
             'norm': 'Auto', # Picks layerwise norm based on the parameter shape
             'scale': args.non_sign_radius,
         }, {
+            'params': ln_weight,
+            'norm': 'Sign',
+            'norm_kwargs': {'init_val': 1., 'normalized': False},
+            'scale': args.non_sign_radius,
+        }, {
             'params': output,
             'norm': 'Sign',
-            'norm_kwargs': {'zero_init': True},
+            'norm_kwargs': {'init_val': 0.},
             'scale': args.sign_radius,
         }]
 
