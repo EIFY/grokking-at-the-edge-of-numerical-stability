@@ -5,8 +5,7 @@ from torch.utils.data import DataLoader, Dataset, Subset
 from torch.utils.data.dataset import random_split
 from datasets import (AlgorithmicDataset, 
                       SparseParityDataset, 
-                      BinaryAlgorithmicDataset,
-                      AlgorithmicDatasetTransformer)
+                      BinaryAlgorithmicDataset)
 from models import MLP, Transformer
 from binary_operations import (product_mod,
                                add_mod,
@@ -151,11 +150,8 @@ def get_dataset(args):
         
     elif args.dataset == "binary_alg":
         dataset = BinaryAlgorithmicDataset(BINARY_OPERATION_MAP[args.binary_operation], p=args.modulo, input_size=args.input_size, output_size=args.modulo)
-    else: 
-        if args.use_transformer or args.use_embedding:
-            dataset = AlgorithmicDatasetTransformer(BINARY_OPERATION_MAP[args.binary_operation], p=args.modulo, input_size=args.input_size, output_size=args.modulo)
-        else:
-            dataset = AlgorithmicDataset(BINARY_OPERATION_MAP[args.binary_operation], p=args.modulo, input_size=args.input_size, output_size=args.modulo)
+    else:
+        dataset = AlgorithmicDataset(BINARY_OPERATION_MAP[args.binary_operation], p=args.modulo, input_size=args.input_size, output_size=args.modulo, one_hot=not args.use_transformer and not args.use_embedding)
 
     train_dataset, test_dataset = split_dataset(dataset, args.train_fraction, args.batch_size)
 

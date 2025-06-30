@@ -34,7 +34,7 @@ def unique_random_combinations(num_features, num_samples):
 
 
 class AlgorithmicDataset(Dataset):
-    def __init__(self, operation, p=DEFAULT_MODULO, input_size=None, output_size=None):
+    def __init__(self, operation, p=DEFAULT_MODULO, input_size=None, output_size=None, one_hot=True):
         self.p = p
         if not input_size:
             self.input_size = p
@@ -48,19 +48,21 @@ class AlgorithmicDataset(Dataset):
 
         for x in range(0,self.input_size):
             for y in range(0,self.input_size):
-
                 if 'div' in operation.__name__ and y == 0:
                     continue
                 result = self.operation(x, y) % self.p 
-                
-                x_one_hot = one_hot_encode(x, self.input_size)
-                y_one_hot = one_hot_encode(y, self.input_size)
-                
-                combined_input = torch.cat((x_one_hot, y_one_hot), 0)
+                if one_hot:
+                    x_one_hot = one_hot_encode(x, self.input_size)
+                    y_one_hot = one_hot_encode(y, self.input_size)
+                    combined_input = torch.cat((x_one_hot, y_one_hot), 0)
+                else:
+                    combined_input = torch.tensor((x, y), dtype=torch.long)
+
                 self.data.append(combined_input)
                 self.targets.append(result)
+
         self.data = torch.stack(self.data)
-        self.targets = torch.tensor(self.targets)
+        self.targets = torch.tensor(self.targets, dtype=torch.long)
 
     def __len__(self):
         return len(self.data)
@@ -120,24 +122,6 @@ class BinaryAlgorithmicDataset(Dataset):
     def __len__(self):
         return len(self.data)
         
-    def __getitem__(self, idx):
-        return self.data[idx], self.targets[idx]
-    
-
-class AlgorithmicDatasetTransformer(Dataset):
-    def __init__(self, operation, p=DEFAULT_MODULO, input_size=None, output_size=None):
-        self.p = p
-        self.input_size = p if input_size is None else input_size
-        self.output_size = output_size if output_size else self.p
-        self.operation = operation
-        
-        self.data = torch.tensor([(i, j) for i in range(1, p) for j in range(1, p)], dtype=torch.long)
-        
-        self.targets = torch.tensor([operation(i, j) for (i, j) in self.data], dtype=torch.long)
-    
-    def __len__(self):
-        return len(self.data)
-    
     def __getitem__(self, idx):
         return self.data[idx], self.targets[idx]
     
