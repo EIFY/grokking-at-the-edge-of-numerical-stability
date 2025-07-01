@@ -9,9 +9,7 @@ from constants import FLOAT_PRECISION_MAP
 from logger import MetricsLogger
 from torch.utils.data import DataLoader
 from utils import (evaluate, 
-                   cross_entropy_float16,
-                   cross_entropy_float32,
-                   cross_entropy_float64,
+                   softmax_cross_entropy,
                    get_specified_args,
                    get_dataset,
                    get_model,
@@ -70,17 +68,13 @@ else:
 
 
 print(args.loss_function)
-cross_entropy_function = {
-    16: cross_entropy_float16,
-    32: cross_entropy_float32,
-    64: cross_entropy_float64
-}
 
 loss_functions = {
-    "cross_entropy": cross_entropy_function[args.softmax_precision],
+    "cross_entropy": softmax_cross_entropy,
     "stablemax": stablemax_cross_entropy
 }
 loss_function = loss_functions[args.loss_function]
+ce_dtype = getattr(torch, args.cross_entropy_dtype)
 save_model_checkpoints = range(0, args.num_epochs, args.log_frequency)
 saved_models = {epoch: None for epoch in save_model_checkpoints}
 
@@ -114,7 +108,7 @@ for epoch in range(args.num_epochs):
     if args.use_transformer:
         output = output[:, -1]
     output = output*args.alpha
-    loss = loss_function(output, shuffled_targets)
+    loss = loss_function(output, shuffled_targets, dtype=ce_dtype)
     loss.backward()
     optimizer.step()
 

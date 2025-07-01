@@ -47,36 +47,36 @@ run_figure() {
 # FIGURE 1
 #######################################
 if run_figure 1; then
-    python grokking_experiments.py --lr 0.01 --num_epochs 80000 --log_frequency 5000 --device "$DEVICE" --train_fraction 0.4 --loss_function stablemax --beta2 0.999
+    python grokking_experiments.py --lr 0.01 --num_epochs 80000 --log_frequency 5000 --device "$DEVICE" --train_fraction 0.4 --loss_function stablemax --cross_entropy_dtype float64 --beta2 0.999
     python grokking_experiments.py --lr 0.01 --num_epochs 300 --log_frequency 10 --device "$DEVICE" --train_fraction 0.4 --beta2 0.99 --orthogonal_gradients
-    python grokking_experiments.py --lr 0.01 --num_epochs 80000 --log_frequency 5000 --device "$DEVICE" --train_fraction 0.4 --softmax_precision 64
+    python grokking_experiments.py --lr 0.01 --num_epochs 80000 --log_frequency 5000 --device "$DEVICE" --train_fraction 0.4 --cross_entropy_dtype float64
 fi
 
 #######################################
 # FIGURE 2
 #######################################
 if run_figure 2; then
-    python grokking_experiments.py --lr 0.0005 --num_epochs 20000 --log_frequency 500 --device "$DEVICE" --train_fraction 0.4 --softmax_precision 16 --adam_epsilon 1e-30
-    python grokking_experiments.py --lr 0.0005 --num_epochs 20000 --log_frequency 500 --device "$DEVICE" --train_fraction 0.4 --softmax_precision 32 --adam_epsilon 1e-30
-    python grokking_experiments.py --lr 0.0005 --num_epochs 20000 --log_frequency 500 --device "$DEVICE" --train_fraction 0.4 --softmax_precision 64 --adam_epsilon 1e-30
+    python grokking_experiments.py --lr 0.0005 --num_epochs 20000 --log_frequency 500 --device "$DEVICE" --train_fraction 0.4 --cross_entropy_dtype float16 --adam_epsilon 1e-30
+    python grokking_experiments.py --lr 0.0005 --num_epochs 20000 --log_frequency 500 --device "$DEVICE" --train_fraction 0.4 --cross_entropy_dtype float32 --adam_epsilon 1e-30
+    python grokking_experiments.py --lr 0.0005 --num_epochs 20000 --log_frequency 500 --device "$DEVICE" --train_fraction 0.4 --cross_entropy_dtype float64 --adam_epsilon 1e-30
 
-    python grokking_experiments.py --lr 0.0005 --num_epochs 20000 --log_frequency 500 --device "$DEVICE" --train_fraction 0.6 --softmax_precision 16
-    python grokking_experiments.py --lr 0.0005 --num_epochs 20000 --log_frequency 500 --device "$DEVICE" --train_fraction 0.6 --softmax_precision 32
-    python grokking_experiments.py --lr 0.0005 --num_epochs 20000 --log_frequency 500 --device "$DEVICE" --train_fraction 0.6 --softmax_precision 64
+    python grokking_experiments.py --lr 0.0005 --num_epochs 20000 --log_frequency 500 --device "$DEVICE" --train_fraction 0.6 --cross_entropy_dtype float16
+    python grokking_experiments.py --lr 0.0005 --num_epochs 20000 --log_frequency 500 --device "$DEVICE" --train_fraction 0.6 --cross_entropy_dtype float32
+    python grokking_experiments.py --lr 0.0005 --num_epochs 20000 --log_frequency 500 --device "$DEVICE" --train_fraction 0.6 --cross_entropy_dtype float64
 
-    python grokking_experiments.py --lr 0.0005 --num_epochs 20000 --log_frequency 500 --device "$DEVICE" --train_fraction 0.7 --softmax_precision 16
-    python grokking_experiments.py --lr 0.0005 --num_epochs 20000 --log_frequency 500 --device "$DEVICE" --train_fraction 0.7 --softmax_precision 32
-    python grokking_experiments.py --lr 0.0005 --num_epochs 20000 --log_frequency 500 --device "$DEVICE" --train_fraction 0.7 --softmax_precision 64
+    python grokking_experiments.py --lr 0.0005 --num_epochs 20000 --log_frequency 500 --device "$DEVICE" --train_fraction 0.7 --cross_entropy_dtype float16
+    python grokking_experiments.py --lr 0.0005 --num_epochs 20000 --log_frequency 500 --device "$DEVICE" --train_fraction 0.7 --cross_entropy_dtype float32
+    python grokking_experiments.py --lr 0.0005 --num_epochs 20000 --log_frequency 500 --device "$DEVICE" --train_fraction 0.7 --cross_entropy_dtype float64
 fi
 
 #######################################
 # FIGURE 4
 #######################################
 if run_figure 4; then
-    python grokking_experiments.py --lr 0.01 --num_epochs 100000 --log_frequency 5000 --device "$DEVICE" --train_fraction 0.4 --loss_function stablemax --beta2 0.999
-    python grokking_experiments.py --lr 0.01 --num_epochs 100000 --log_frequency 5000 --device "$DEVICE" --train_fraction 0.4 --loss_function stablemax --binary_operation product_mod --beta2 0.999
+    python grokking_experiments.py --lr 0.01 --num_epochs 100000 --log_frequency 5000 --device "$DEVICE" --train_fraction 0.4 --loss_function stablemax --cross_entropy_dtype float64 --beta2 0.999
+    python grokking_experiments.py --lr 0.01 --num_epochs 100000 --log_frequency 5000 --device "$DEVICE" --train_fraction 0.4 --loss_function stablemax --cross_entropy_dtype float64 --binary_operation product_mod --beta2 0.999
     python grokking_experiments.py --lr 0.01 --num_epochs 100000 --log_frequency 5000 --device "$DEVICE" \
-      --train_fraction 0.5 --loss_function stablemax --dataset sparse_parity \
+      --train_fraction 0.5 --loss_function stablemax --cross_entropy_dtype float64 --dataset sparse_parity \
       --num_noise_features 40 --num_parity_features 3 --num_samples 2000 --adam_epsilon 1e-18 --beta2 0.999
 fi
 
@@ -98,6 +98,5 @@ if run_figure 6; then
     python grokking_experiments.py --lr 0.005 --num_epochs 500 --log_frequency 20 --device "$DEVICE"\
      --train_fraction 0.4 --orthogonal_gradients
     python grokking_experiments.py --lr 10 --num_epochs 500 --log_frequency 20 --device "$DEVICE"\
-    --train_fraction 0.4 --orthogonal_gradients --optimizer SGD --train_precision 64 --softmax_precision 64\
-     --loss_function stablemax
+    --train_fraction 0.4 --orthogonal_gradients --optimizer SGD --train_precision 64 --loss_function stablemax --cross_entropy_dtype float64
 fi

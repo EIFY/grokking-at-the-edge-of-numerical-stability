@@ -19,13 +19,6 @@ def one_hot_encode(number, size):
     one_hot[number] = 1
     return one_hot
 
-def cross_entropy_float64(logits, labels, reduction="mean"):
-    labels = labels.to(torch.int64)
-    logprobs = torch.nn.functional.log_softmax(logits.to(torch.float64), dim=-1)
-    prediction_logprobs = torch.gather(logprobs, index=labels[:, None], dim=-1).to(torch.float64)
-    loss = -torch.mean(prediction_logprobs) if reduction=="mean" else - prediction_logprobs
-    return loss.to(torch.float32)
-
 
 def s(x, epsilon=1e-30):
     return torch.where(
@@ -39,18 +32,16 @@ def log_stablemax(x, dim=-1):
     return torch.log(s_x/torch.sum(s_x, dim=dim, keepdim=True))
 
 
-def stablemax_cross_entropy(logits, labels, reduction="mean"):
-    labels = labels.to(torch.int64)
-    logprobs = log_stablemax(logits.to(torch.float64), dim=-1)
-    prediction_logprobs = torch.gather(logprobs, index=labels[:, None], dim=-1).to(torch.float64)
+def stablemax_cross_entropy(logits, labels, reduction="mean", dtype=torch.float32):
+    logprobs = log_stablemax(logits.to(dtype), dim=-1)
+    prediction_logprobs = torch.gather(logprobs, index=labels[:, None], dim=-1)
 
     loss = -torch.mean(prediction_logprobs) if reduction=="mean" else - prediction_logprobs
     return loss
 
 
-def cross_entropy_float32(logits, labels, reduction="mean"):
-    labels = labels.to(torch.int64)
-    logprobs = torch.nn.functional.log_softmax(logits.to(torch.float32), dim=-1)
+def softmax_cross_entropy(logits, labels, reduction="mean", dtype=torch.float32):
+    logprobs = torch.nn.functional.log_softmax(logits, dim=-1, dtype=dtype)
     labels = labels.view(-1, 1)
     prediction_logprobs = torch.gather(logprobs, dim=-1, index=labels)
     prediction_logprobs = prediction_logprobs.squeeze(-1)
@@ -66,14 +57,6 @@ def cross_entropy_float32(logits, labels, reduction="mean"):
     return loss
 
 
-def cross_entropy_float16(logits, labels, reduction="mean"):
-    labels = labels.to(torch.int64)
-    logprobs = torch.nn.functional.log_softmax(logits.to(torch.float16), dim=-1)
-
-    prediction_logprobs = torch.gather(logprobs, index=labels[:, None], dim=-1).to(torch.float16)
-    loss = -torch.mean(prediction_logprobs) if reduction=="mean" else - prediction_logprobs
-    return loss
-
 def update_results(filename, experiment_key, logger_metrics):
     try:
         results = torch.load(filename)
@@ -83,7 +66,7 @@ def update_results(filename, experiment_key, logger_metrics):
     results[experiment_key] = logger_metrics
     torch.save(results, filename)
 
-def evaluate(model, data_loader, loss_function=cross_entropy_float64, use_embedding=False):
+def evaluate(model, data_loader, loss_function=softmax_cross_entropy, use_embedding=False, dtype=torch.float64):
     model.eval()
     loss = 0
     correct = 0
@@ -98,7 +81,7 @@ def evaluate(model, data_loader, loss_function=cross_entropy_float64, use_embedd
             output = model(data).to("cpu")
             if isinstance(model, Transformer):
                 output = output[:,-1]
-            loss += loss_function(output, target).item()
+            loss += loss_function(output, target, dtype=dtype).item()
             pred = output.argmax(dim=1, keepdim=True)
             if label_argmax:
                 target = target.argmax(dim=1)
@@ -315,8 +298,8 @@ def parse_args():
     parser.add_argument('--lambda_l2', type=float, default=0.00005,
                         help='L2 regularization coefficient. Default is 0.00005.')
 
-    parser.add_argument('--softmax_precision', type=int, default=32,
-                        help='Floating point precision for the loss calculation: 16, 32, or 64. Default is 32.')
+    parser.add_argument('--cross_entropy_dtype', type=str, default='float32',
+                        help='Floating point precision for the loss calculation: Default is float32.')
     
     parser.add_argument('--train_precision', type=int, default=32,
                         help='Floating point precision for the model and data: 16, 32, or 64. Default is 32.')
