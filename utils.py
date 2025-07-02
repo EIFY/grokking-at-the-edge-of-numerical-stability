@@ -10,7 +10,6 @@ from models import MLP, Transformer
 from binary_operations import (product_mod,
                                add_mod,
                                subtract_mod)
-from constants import  FLOAT_PRECISION_MAP
 from talon import Scion
 
 
@@ -147,26 +146,25 @@ def generate_random_one_hot(length):
     return one_hot_vector
 
 def get_model(args):
-    device = args.device
 
     if args.dataset == "sparse_parity":
         model = MLP(input_size= args.num_parity_features + args.num_noise_features, output_size=2, 
-                    hidden_sizes=args.hidden_sizes).to(device) 
+                    hidden_sizes=args.hidden_sizes)
 
     elif args.dataset == "binary_alg":
         model = MLP(input_size=(args.input_size - 1).bit_length()*2, output_size=args.modulo, 
-                    hidden_sizes=args.hidden_sizes).to(device)
+                    hidden_sizes=args.hidden_sizes)
 
     elif args.dataset == "scalar_alg":
-        model = MLP(input_size=2, output_size=args.modulo, hidden_sizes=args.hidden_sizes).to(device)
-                    
+        model = MLP(input_size=2, output_size=args.modulo, hidden_sizes=args.hidden_sizes)
+
     else:
         print("Using AlgorithmicDataset")
         if args.use_transformer:
             model = Transformer(d_model=128, num_heads=4, num_layers=1, vocab_size=113, seq_len=2, norm_first=args.use_pre_norm)
         else:
             model = MLP(input_size=args.input_size*2, output_size=args.modulo, hidden_sizes=args.hidden_sizes
-                    , vocab_size=113, bias=False, use_embedding=args.use_embedding).to(device).to(FLOAT_PRECISION_MAP[args.train_precision])
+                    , vocab_size=113, bias=False, use_embedding=args.use_embedding)
     return model
         
 def get_optimizer(model, args):
@@ -301,8 +299,8 @@ def parse_args():
     parser.add_argument('--cross_entropy_dtype', type=str, default='float32',
                         help='Floating point precision for the loss calculation: Default is float32.')
     
-    parser.add_argument('--train_precision', type=int, default=32,
-                        help='Floating point precision for the model and data: 16, 32, or 64. Default is 32.')
+    parser.add_argument('--train_dtype', type=str, default='float32',
+                        help='Floating point precision for the model and data: Default is float32.')
 
     parser.add_argument('--weight_decay', type=float, default=0,
                         help='Weight decay (L2 penalty) coefficient. Default is 0.')

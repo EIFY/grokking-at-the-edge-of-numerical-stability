@@ -5,7 +5,6 @@ import torch.nn as nn
 import json
 import os
 from orthograd import OrthoGrad
-from constants import FLOAT_PRECISION_MAP
 from logger import MetricsLogger
 from torch.utils.data import DataLoader
 from utils import (evaluate, 
@@ -25,7 +24,7 @@ parser, args = parse_args()
 random.seed(args.seed)
 torch.manual_seed(args.seed)
 
-train_precision = FLOAT_PRECISION_MAP[args.train_precision]
+train_dtype = getattr(torch, args.train_dtype)
 
 device = args.device
 print("Using device:", device)
@@ -88,14 +87,14 @@ if args.full_batch:
     all_test_targets = test_dataset.dataset.targets[test_dataset.indices].to(device).long()
 
     if not (args.use_transformer or args.use_embedding):
-        all_data = all_data.to(train_precision)
-        all_test_data = all_test_data.to(train_precision)
+        all_data = all_data.to(train_dtype)
+        all_test_data = all_test_data.to(train_dtype)
 else:
     raise ValueError("Current implementation only supports full batch training.")
 
 loss = torch.inf
 start_time = time.time()
-model.to(device).to(train_precision)
+model.to(device).to(train_dtype)
 for epoch in range(args.num_epochs):
     #Shuffling the data should not matter for full batch GD, 
     #but it sometimes does matter because of floating point errors

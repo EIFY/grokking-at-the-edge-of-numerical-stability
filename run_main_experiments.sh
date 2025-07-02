@@ -98,5 +98,5 @@ if run_figure 6; then
     python grokking_experiments.py --lr 0.005 --num_epochs 500 --log_frequency 20 --device "$DEVICE"\
      --train_fraction 0.4 --orthogonal_gradients
     python grokking_experiments.py --lr 10 --num_epochs 500 --log_frequency 20 --device "$DEVICE"\
-    --train_fraction 0.4 --orthogonal_gradients --optimizer SGD --train_precision 64 --loss_function stablemax --cross_entropy_dtype float64
+    --train_fraction 0.4 --orthogonal_gradients --optimizer SGD --train_dtype float64 --loss_function stablemax --cross_entropy_dtype float64
 fi
