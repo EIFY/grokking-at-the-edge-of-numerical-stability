@@ -84,6 +84,15 @@ fi
 # FIGURE 6
 #######################################
 if run_figure 6; then
+    python grokking_experiments.py --binary_operation subtract_mod --lr 0.001 --num_epochs 5000 --log_frequency 200 --device "$DEVICE" \
+      --train_fraction 0.4 --orthogonal_gradients --use_transformer
+
+    python grokking_experiments.py --binary_operation subtract_mod --lr 0.001 --num_epochs 5000 --log_frequency 200 --device "$DEVICE" \
+      --train_fraction 0.4 --use_transformer --weight_decay 1.5
+
+    python grokking_experiments.py --binary_operation subtract_mod --lr 0.001 --num_epochs 5000 --log_frequency 200 --device "$DEVICE" \
+      --train_fraction 0.4 --use_transformer
+
     python grokking_experiments.py --lr 0.001 --num_epochs 5000 --log_frequency 200 --device "$DEVICE" \
       --train_fraction 0.4 --orthogonal_gradients --use_transformer
 
