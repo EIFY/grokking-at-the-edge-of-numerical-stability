@@ -2,7 +2,7 @@ import torch.nn as nn
 import torch
 
 class MLP(nn.Module):
-    def __init__(self, input_size, hidden_sizes, output_size, vocab_size=None, bias=True, use_embedding=False):
+    def __init__(self, input_size, hidden_sizes, output_size, vocab_size=None, bias=True, use_embedding=False, non_linearity=nn.ReLU):
         super(MLP, self).__init__()
         self.input_size = input_size
         self.hidden_sizes = hidden_sizes
@@ -13,7 +13,7 @@ class MLP(nn.Module):
         if use_embedding:
             self.embedding = nn.Embedding(vocab_size, input_size // 2)
         self.layers = nn.ModuleList()
-        self.non_linearity = nn.ReLU()
+        self.non_linearity = non_linearity()
         self.uses_bias = bias
         self.alpha = 1
         layer_sizes = [input_size] + hidden_sizes + [output_size]
@@ -34,10 +34,11 @@ class MLP(nn.Module):
     
 
 class Transformer(nn.Module):
-    def __init__(self, d_model, num_heads, num_layers, vocab_size, seq_len, norm_first=False):
+    def __init__(self, d_model, num_heads, num_layers, vocab_size, seq_len, norm_first=False, non_linearity=nn.ReLU):
         super().__init__()
         self.embedding = nn.Embedding(vocab_size, d_model)
-        encoder_layer = nn.TransformerEncoderLayer(d_model, num_heads, batch_first=True, norm_first=norm_first)
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model, num_heads, activation=non_linearity(), batch_first=True, norm_first=norm_first)
         self.transformer = nn.TransformerEncoder(encoder_layer, num_layers)
         self.linear = nn.Linear(d_model, vocab_size)
 

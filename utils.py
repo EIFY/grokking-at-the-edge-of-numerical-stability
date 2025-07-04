@@ -146,25 +146,28 @@ def generate_random_one_hot(length):
     return one_hot_vector
 
 def get_model(args):
+    activation_func = getattr(torch.nn, args.activation_function)
 
     if args.dataset == "sparse_parity":
         model = MLP(input_size= args.num_parity_features + args.num_noise_features, output_size=2, 
-                    hidden_sizes=args.hidden_sizes)
+                    hidden_sizes=args.hidden_sizes, non_linearity=activation_func)
 
     elif args.dataset == "binary_alg":
         model = MLP(input_size=(args.input_size - 1).bit_length()*2, output_size=args.modulo, 
-                    hidden_sizes=args.hidden_sizes)
+                    hidden_sizes=args.hidden_sizes, non_linearity=activation_func)
 
     elif args.dataset == "scalar_alg":
-        model = MLP(input_size=2, output_size=args.modulo, hidden_sizes=args.hidden_sizes)
+        model = MLP(
+            input_size=2, output_size=args.modulo, hidden_sizes=args.hidden_sizes, non_linearity=activation_func)
 
     else:
         print("Using AlgorithmicDataset")
         if args.use_transformer:
-            model = Transformer(d_model=128, num_heads=4, num_layers=1, vocab_size=113, seq_len=2, norm_first=args.use_pre_norm)
+            model = Transformer(d_model=128, num_heads=4, num_layers=1, vocab_size=113, seq_len=2,
+                                norm_first=args.use_pre_norm, non_linearity=activation_func)
         else:
-            model = MLP(input_size=args.input_size*2, output_size=args.modulo, hidden_sizes=args.hidden_sizes
-                    , vocab_size=113, bias=False, use_embedding=args.use_embedding)
+            model = MLP(input_size=args.input_size*2, output_size=args.modulo, hidden_sizes=args.hidden_sizes,
+                        vocab_size=113, bias=False, use_embedding=args.use_embedding, non_linearity=activation_func)
     return model
         
 def get_optimizer(model, args):
@@ -319,6 +322,9 @@ def parse_args():
 
     parser.add_argument('--use_embedding', action='store_true', default=False,
                         help='Use trainable embedding instead of one-hot encoding for MLP')
+
+    parser.add_argument('--activation_function', type=str, default='ReLU',
+                        help='Activation function for the model')
 
     parser.add_argument('--device', type=str, default="cpu",
                         help='Device')
