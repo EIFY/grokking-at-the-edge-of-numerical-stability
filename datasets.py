@@ -46,8 +46,8 @@ class AlgorithmicDataset(Dataset):
         self.data = []
         self.targets = []
 
-        for x in range(0,self.input_size):
-            for y in range(0,self.input_size):
+        for x in range(0,self.p):
+            for y in range(0,self.p):
                 if 'div' in operation.__name__ and y == 0:
                     continue
                 result = self.operation(x, y) % self.p 
@@ -95,8 +95,8 @@ class BinaryAlgorithmicDataset(Dataset):
         else:
             self.permutation_mapping = None
 
-        for x in range(0, self.input_size):
-            for y in range(0, self.input_size):
+        for x in range(0, self.p):
+            for y in range(0, self.p):
                 if 'div' in operation.__name__ and y == 0:
                     continue
                 result = self.operation(x, y) % self.p 
