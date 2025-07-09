@@ -108,8 +108,10 @@ class MetricsLogger:
         train_preds = self._train_output.argmax(dim=1)
         test_preds = self._test_output.argmax(dim=1)
 
-        train_acc = (train_preds == self._train_targets).float().mean().item()
-        test_acc = (test_preds == self._test_targets).float().mean().item()
+        accuracy = lambda correct: correct.sum().item() / correct.size(0)
+
+        train_acc = accuracy(train_preds == self._train_targets)
+        test_acc = accuracy(test_preds == self._test_targets)
 
         return [
             {
