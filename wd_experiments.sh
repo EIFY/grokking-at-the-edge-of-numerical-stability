@@ -2,7 +2,7 @@
 
 DEVICE="cuda:0"
 
-for LR in 0.001 0.005 0.01 0.05
+for LR in 0.001 0.002 0.005 0.01 0.02 0.05
 do
     for WD in 2. 4. 6. 8. 10.
     do
