@@ -6,7 +6,7 @@ for AR in "--all_reg" ""
 do
     HS=200
 
-    for LR in 0.001 0.002 0.005 0.01 0.02 0.05
+    for LR in 0.001 0.002 0.005 0.01 0.02 0.05 0.1
     do
         for WD in 2. 4. 6. 8. 10.
         do
@@ -19,7 +19,7 @@ do
 
     EM="--use_embedding --input_size 100"
 
-    for LR in 0.001 0.002 0.005 0.01 0.02 0.05
+    for LR in 0.001 0.002 0.005 0.01 0.02 0.05 0.1
     do
         for WD in 2. 4. 6. 8. 10.
         do
@@ -34,7 +34,7 @@ do
     do
         for EM in "--use_embedding --input_size 100" ""
         do
-            for LR in 0.001 0.002 0.005 0.01 0.02 0.05
+            for LR in 0.001 0.002 0.005 0.01 0.02 0.05 0.1
             do
                 for WD in 2. 4. 6. 8. 10.
                 do
