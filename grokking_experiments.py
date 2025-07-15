@@ -4,7 +4,6 @@ import torch
 import torch.nn as nn
 import json
 import os
-from orthograd import OrthoGrad
 from logger import MetricsLogger
 from torch.utils.data import DataLoader
 from utils import (evaluate, 
@@ -43,28 +42,7 @@ args.lr = args.lr/(args.alpha**2)
 
 model = get_model(args)
 logger = MetricsLogger(args.num_epochs, args.log_frequency)
-
-base_optimizer = get_optimizer(model, args)
-
-
-if args.orthogonal_gradients:
-    base_optimizer_cls = type(base_optimizer)
-    base_state_dict = base_optimizer.state_dict()
-    
-    optimizer_args = {
-        'lr': args.lr,
-        'weight_decay': args.weight_decay
-    }
-    if args.optimizer=="SGD":
-        optimizer_args["momentum"] = 0.8
-    else:
-        betas=(0.9, args.beta2)
-    optimizer = OrthoGrad(model.parameters(), base_optimizer_cls, **optimizer_args)
-    
-    optimizer.load_state_dict(base_state_dict)
-else:
-    optimizer = base_optimizer
-
+optimizer = get_optimizer(model, args)
 
 print(args.loss_function)
 

@@ -6,6 +6,7 @@ from torch.utils.data.dataset import random_split
 from datasets import (AlgorithmicDataset, 
                       SparseParityDataset, 
                       BinaryAlgorithmicDataset)
+from orthograd import OrthoGrad
 from models import MLP, Transformer
 from binary_operations import (product_mod,
                                add_mod,
@@ -163,63 +164,98 @@ def get_model(args):
     else:
         print("Using AlgorithmicDataset")
         if args.use_transformer:
-            model = Transformer(d_model=128, num_heads=4, num_layers=1, vocab_size=113, seq_len=2,
+            model = Transformer(d_model=128, num_heads=4, num_layers=1, vocab_size=args.modulo, seq_len=2,
                                 norm_first=args.use_pre_norm, non_linearity=activation_func)
         else:
             model = MLP(input_size=args.input_size*2, output_size=args.modulo, hidden_sizes=args.hidden_sizes,
-                        vocab_size=113, bias=False, use_embedding=args.use_embedding, non_linearity=activation_func)
+                        vocab_size=args.modulo, bias=False, use_embedding=args.use_embedding, non_linearity=activation_func)
     return model
         
 def get_optimizer(model, args):
-    if args.optimizer == "Adam":
-        optimizer = optim.Adam(model.parameters(), lr=args.lr, betas=(0.9, 0.98), weight_decay=0, eps=args.adam_epsilon)
-    elif args.optimizer == "AdamW":
-        optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay, eps=args.adam_epsilon, betas=(0.9, args.beta2))
-    elif args.optimizer == "SGD":
-        optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=0.2, weight_decay=0)
-    elif args.optimizer == "Scion":
 
-        embedding = []
-        hidden = []
-        output = []
-        ln_weight = []
+    hidden = []
+    output = []
+    embedding = []
+    bias = []
+    ln_weight = []
 
-        for n, p in model.named_parameters():
-            if 'embedding' in n:
-                embedding.append(p)
-            elif n.endswith('linear.weight') or (
-                'layers' in n and n.endswith('.weight') and str(len(getattr(model, 'layers', [])) - 1) in n):
-                output.append(p)
-            elif 'norm' in n and n.endswith('.weight'):
-                ln_weight.append(p)
-            else:
-                hidden.append(p)
+    for n, p in model.named_parameters():
+        if 'embedding' in n:
+            embedding.append(p)
+        elif n.endswith('linear.weight') or (
+            'layers' in n and n.endswith('.weight') and str(len(getattr(model, 'layers', [])) - 1) in n):
+            output.append(p)
+        elif 'norm' in n and n.endswith('.weight'):
+            ln_weight.append(p)
+        elif p.ndim >= 2:
+            hidden.append(p)
+        else:
+            bias.append(p)
 
-        optim_groups = [{
-            'params': embedding,
-            'norm': 'ColNorm',
-            'norm_kwargs': {'transpose': True},
-            'scale': args.non_sign_radius,
-        }, {
+    if embedding:
+        transpose = True
+    else:
+        # one-hot encoding means the 1st hidden layer of MLP functions as embeddings
+        transpose = False
+        embedding, hidden = hidden[:1], hidden[1:]
+
+    if args.optimizer == "Scion":
+
+        param_groups = [{
             'params': hidden,
-            'norm': 'Auto', # Picks layerwise norm based on the parameter shape
-            'scale': args.non_sign_radius,
-        }, {
-            'params': ln_weight,
-            'norm': 'Sign',
-            'norm_kwargs': {'init_val': 1., 'normalized': False},
+            'norm': 'Spectral',
             'scale': args.non_sign_radius,
         }, {
             'params': output,
             'norm': 'Sign',
             'norm_kwargs': {'init_val': 0.},
             'scale': args.sign_radius,
+        }, {
+            'params': embedding,
+            'norm': 'ColNorm',
+            'norm_kwargs': {'transpose': transpose},
+            'scale': args.non_sign_radius,
+        }, {
+            'params': bias,
+            'norm': 'BiasRMS',
+            'scale': args.non_sign_radius,
+        }, {
+            'params': ln_weight,
+            'norm': 'Sign',
+            'norm_kwargs': {'init_val': 1., 'normalized': False},
+            'scale': args.non_sign_radius,
         }]
 
-        optimizer = Scion(optim_groups, lr=args.lr, momentum=0.1, unconstrained=not args.constrained)
-        optimizer.init()
-    else: 
-        raise ValueError(f'Unsupported optimizer type: {args.optimizer}')
+        regular = len(param_groups) if args.all_reg else 2
+        for pg in param_groups: pg |= dict(lr=args.lr, momentum=0.1)
+        for pg in param_groups[:regular]: pg |= dict(unconstrained=not args.constrained)
+        for pg in param_groups[regular:]: pg |= dict(unconstrained=True)
+        base_optimizer_cls = Scion
+
+    else:
+
+        reg = hidden + output
+        unreg = embedding + bias + ln_weight
+
+        param_groups = [dict(params=reg), dict(params=unreg)]
+        regular = len(param_groups) if args.all_reg else 1
+
+        if args.optimizer in ("Adam", "AdamW"):
+            for pg in param_groups: pg |= dict(lr=args.lr, betas=(0.9, args.beta2), eps=args.adam_epsilon)
+        elif args.optimizer == "SGD":
+            for pg in param_groups: pg |= dict(lr=args.lr, momentum=0.8 if args.orthogonal_gradients else 0.2)
+        else:
+            raise ValueError(f'Unsupported optimizer type: {args.optimizer}')
+
+        for pg in param_groups[:regular]: pg |= dict(weight_decay=args.weight_decay)
+        for pg in param_groups[regular:]: pg |= dict(weight_decay=0)
+        base_optimizer_cls = getattr(optim, args.optimizer)
+
+    if args.orthogonal_gradients:
+        optimizer = OrthoGrad(param_groups, regular, base_optimizer_cls)
+    else:
+        optimizer = base_optimizer_cls(param_groups)
+
     return optimizer
     
 import argparse
@@ -260,9 +296,6 @@ def parse_args():
     parser.add_argument('--log_frequency', type=int, default=50,
                         help='Logging frequency (in epochs). Default is 50.')
 
-    parser.add_argument('--regularization', type=str, default="None",
-                        help='Regularization method. Options: None, l1, l2. Default is None.')
-    
     parser.add_argument('--binary_operation', type=str, default="add_mod",
                         help='Binary operation for algorithmic tasks. Options: add_mod, product_mod, subtract_mod')
 
@@ -293,12 +326,6 @@ def parse_args():
     parser.add_argument('--alpha', type=float, default=1.0,
                         help='Alpha coefficient that multiplies the logits. Default is 1.0.')
 
-    parser.add_argument('--lambda_l1', type=float, default=0.00001,
-                        help='L1 regularization coefficient. Default is 0.00001.')
-
-    parser.add_argument('--lambda_l2', type=float, default=0.00005,
-                        help='L2 regularization coefficient. Default is 0.00005.')
-
     parser.add_argument('--cross_entropy_dtype', type=str, default='float32',
                         help='Floating point precision for the loss calculation: Default is float32.')
     
@@ -322,6 +349,9 @@ def parse_args():
 
     parser.add_argument('--use_embedding', action='store_true', default=False,
                         help='Use trainable embedding instead of one-hot encoding for MLP')
+
+    parser.add_argument('--all_reg', action='store_true', default=False,
+                        help='Weight regularization (decay or orthogonalization) for embedding, bias, and LN weight')
 
     parser.add_argument('--activation_function', type=str, default='ReLU',
                         help='Activation function for the model')

@@ -278,7 +278,7 @@ class Scion(torch.optim.Optimizer):
         defaults = dict(lr=lr, momentum=momentum, scale=scale, unconstrained=unconstrained, norm=norm, norm_kwargs=norm_kwargs)
         super().__init__(params, defaults)
 
-    def step(self):
+    def step(self, closure=None):
         for group in self.param_groups:
             lr = group['lr']
             momentum = group['momentum']
@@ -355,7 +355,7 @@ class ScionLight(torch.optim.Optimizer):
         defaults = dict(lr=lr, momentum=momentum, scale=scale, unconstrained=unconstrained, norm=norm, norm_kwargs=norm_kwargs)
         super().__init__(params, defaults)
 
-    def step(self):
+    def step(self, closure=None):
         for group in self.param_groups:
             lr = group['lr']
             momentum = group['momentum']
