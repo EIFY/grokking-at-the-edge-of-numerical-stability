@@ -51,7 +51,7 @@ class MetricsLogger:
 
     def log_metrics(self, model, epoch, save_model_checkpoints, saved_models,
                     all_data, all_targets, all_test_data, all_test_targets,
-                    args, loss_function):
+                    args, loss_function, lipschitz_bound):
         """
         Compute and log all metrics in a full-batch setting.
         """
@@ -75,6 +75,16 @@ class MetricsLogger:
             if rows is not None and len(rows) > 0:
                 self.metrics_df = pd.concat([self.metrics_df, pd.DataFrame(rows)], ignore_index=True)
 
+        lipschitz = [
+            {
+                "epoch": epoch_position,
+                "input_type": "test",
+                "metric_name": "lipschitz_bound",
+                "layer": None,
+                "value": lipschitz_bound
+            }
+        ]
+        self.metrics_df = pd.concat([self.metrics_df, pd.DataFrame(lipschitz)], ignore_index=True)
 
         self._train_output = None
         self._train_targets = None

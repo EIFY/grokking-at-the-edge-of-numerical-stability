@@ -1,3 +1,4 @@
+import math
 import random
 import time
 import torch
@@ -14,6 +15,21 @@ from utils import (evaluate,
                    parse_args,
                    get_optimizer,
                    stablemax_cross_entropy)
+
+
+def power_iteration(mat, v, steps=10):
+    with torch.no_grad():
+        for _ in range(steps - 1):
+            u = mat @ v
+            v = mat.mT @ u
+            v_norm, u_norm = torch.linalg.vector_norm(v), torch.linalg.vector_norm(u)
+            v /= v_norm
+        u = mat @ v
+        v = mat.mT @ u
+        v_norm, u_norm = torch.linalg.vector_norm(v), torch.linalg.vector_norm(u)
+        spectral_norm = v_norm / u_norm
+        v /= v_norm
+    return spectral_norm, v
 
 
 torch.set_num_threads(5) 
@@ -73,6 +89,7 @@ else:
 loss = torch.inf
 start_time = time.time()
 model.to(device).to(train_dtype)
+v = [torch.normal(0, 1, (layer.weight.size(1),)).to(layer.weight) for layer in model.layers]
 for epoch in range(args.num_epochs):
     #Shuffling the data should not matter for full batch GD, 
     #but it sometimes does matter because of floating point errors
@@ -88,6 +105,9 @@ for epoch in range(args.num_epochs):
     loss = loss_function(output, shuffled_targets, dtype=ce_dtype)
     loss.backward()
     optimizer.step()
+    norm_v = map(power_iteration, (layer.weight for layer in model.layers), v)
+    norms, v = zip(*norm_v)
+    lipschitz_bound = math.prod(norms).item()
 
     if epoch % logger.log_frequency == 0:
         logger.log_metrics(
@@ -101,6 +121,7 @@ for epoch in range(args.num_epochs):
             all_test_targets=all_test_targets,
             args=args,
             loss_function=loss_function,
+            lipschitz_bound=lipschitz_bound,
         )
 
         print(f'Epoch {epoch}: Training loss: {loss.item():.4f}')
