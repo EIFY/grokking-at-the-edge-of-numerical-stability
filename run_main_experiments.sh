@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 DEVICE="cuda:0"
-AR="--all_reg"
 FIGURES=()
 
 # Parse command line arguments
@@ -49,7 +48,7 @@ run_figure() {
 #######################################
 if run_figure 1; then
     python grokking_experiments.py --lr 0.01 --num_epochs 80000 --log_frequency 5000 --device "$DEVICE" --train_fraction 0.4 --loss_function stablemax --cross_entropy_dtype float64 --beta2 0.999
-    python grokking_experiments.py --lr 0.01 --num_epochs 300 --log_frequency 10 --device "$DEVICE" --train_fraction 0.4 --beta2 0.99 --orthogonal_gradients $AR
+    python grokking_experiments.py --lr 0.01 --num_epochs 300 --log_frequency 10 --device "$DEVICE" --train_fraction 0.4 --beta2 0.99 --orthogonal_gradients
     python grokking_experiments.py --lr 0.01 --num_epochs 80000 --log_frequency 5000 --device "$DEVICE" --train_fraction 0.4 --cross_entropy_dtype float64
 fi
 
@@ -86,10 +85,10 @@ fi
 #######################################
 if run_figure 6; then
     python grokking_experiments.py --lr 0.001 --num_epochs 5000 --log_frequency 200 --device "$DEVICE" \
-      --train_fraction 0.4 --orthogonal_gradients --use_transformer $AR
+      --train_fraction 0.4 --orthogonal_gradients --use_transformer
 
     python grokking_experiments.py --lr 0.001 --num_epochs 5000 --log_frequency 200 --device "$DEVICE" \
-      --train_fraction 0.4 --use_transformer --weight_decay 1.5 $AR
+      --train_fraction 0.4 --use_transformer --weight_decay 1.5
 
     python grokking_experiments.py --lr 0.001 --num_epochs 5000 --log_frequency 200 --device "$DEVICE" \
       --train_fraction 0.4 --use_transformer
@@ -97,7 +96,24 @@ if run_figure 6; then
     python grokking_experiments.py --lr 0.005 --num_epochs 500 --log_frequency 20 --device "$DEVICE"\
      --train_fraction 0.4
     python grokking_experiments.py --lr 0.005 --num_epochs 500 --log_frequency 20 --device "$DEVICE"\
-     --train_fraction 0.4 --orthogonal_gradients $AR
+     --train_fraction 0.4 --orthogonal_gradients
     python grokking_experiments.py --lr 10 --num_epochs 500 --log_frequency 20 --device "$DEVICE"\
-    --train_fraction 0.4 --orthogonal_gradients --optimizer SGD --train_dtype float64 --loss_function stablemax --cross_entropy_dtype float64 $AR
+    --train_fraction 0.4 --orthogonal_gradients --optimizer SGD --train_dtype float64 --loss_function stablemax --cross_entropy_dtype float64
+fi
+
+#######################################
+# FIGURE 9
+#######################################
+if run_figure 9; then
+    python grokking_experiments.py --optimizer SGD --lr 3.0 --num_epochs 10000 --log_frequency 100 --device "$DEVICE" --train_fraction 0.4 --cross_entropy_dtype float16 --use_lr_scheduler
+    python grokking_experiments.py --optimizer SGD --lr 3.0 --num_epochs 10000 --log_frequency 100 --device "$DEVICE" --train_fraction 0.4 --cross_entropy_dtype float32 --use_lr_scheduler
+    python grokking_experiments.py --optimizer SGD --lr 3.0 --num_epochs 10000 --log_frequency 100 --device "$DEVICE" --train_fraction 0.4 --cross_entropy_dtype float64 --use_lr_scheduler
+
+    python grokking_experiments.py --optimizer SGD --lr 4.0 --num_epochs 10000 --log_frequency 100 --device "$DEVICE" --train_fraction 0.6 --cross_entropy_dtype float16 --use_lr_scheduler
+    python grokking_experiments.py --optimizer SGD --lr 4.0 --num_epochs 10000 --log_frequency 100 --device "$DEVICE" --train_fraction 0.6 --cross_entropy_dtype float32 --use_lr_scheduler
+    python grokking_experiments.py --optimizer SGD --lr 4.0 --num_epochs 10000 --log_frequency 100 --device "$DEVICE" --train_fraction 0.6 --cross_entropy_dtype float64 --use_lr_scheduler
+
+    python grokking_experiments.py --optimizer SGD --lr 4.0 --num_epochs 10000 --log_frequency 100 --device "$DEVICE" --train_fraction 0.7 --cross_entropy_dtype float16 --use_lr_scheduler
+    python grokking_experiments.py --optimizer SGD --lr 4.0 --num_epochs 10000 --log_frequency 100 --device "$DEVICE" --train_fraction 0.7 --cross_entropy_dtype float32 --use_lr_scheduler
+    python grokking_experiments.py --optimizer SGD --lr 4.0 --num_epochs 10000 --log_frequency 100 --device "$DEVICE" --train_fraction 0.7 --cross_entropy_dtype float64 --use_lr_scheduler
 fi

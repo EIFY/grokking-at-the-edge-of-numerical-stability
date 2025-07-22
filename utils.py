@@ -11,7 +11,6 @@ from models import MLP, Transformer
 from binary_operations import (product_mod,
                                add_mod,
                                subtract_mod)
-from talon import Scion
 
 
 def one_hot_encode(number, size):
@@ -173,88 +172,22 @@ def get_model(args):
         
 def get_optimizer(model, args):
 
-    hidden = []
-    output = []
-    embedding = []
-    bias = []
-    ln_weight = []
+    param_group = dict(params=model.parameters())
 
-    for n, p in model.named_parameters():
-        if 'embedding' in n:
-            embedding.append(p)
-        elif n.endswith('linear.weight') or (
-            'layers' in n and n.endswith('.weight') and str(len(getattr(model, 'layers', [])) - 1) in n):
-            output.append(p)
-        elif 'norm' in n and n.endswith('.weight'):
-            ln_weight.append(p)
-        elif p.ndim >= 2:
-            hidden.append(p)
-        else:
-            bias.append(p)
-
-    if embedding:
-        transpose = True
+    if args.optimizer in ("Adam", "AdamW"):
+        param_group |= dict(lr=args.lr, betas=(0.9, args.beta2), eps=args.adam_epsilon)
+    elif args.optimizer == "SGD":
+        param_group |= dict(lr=args.lr, momentum=0.8 if args.orthogonal_gradients else 0.2)
     else:
-        # one-hot encoding means the 1st hidden layer of MLP functions as embeddings
-        transpose = False
-        embedding, hidden = hidden[:1], hidden[1:]
+        raise ValueError(f'Unsupported optimizer type: {args.optimizer}')
 
-    if args.optimizer == "Scion":
-
-        param_groups = [{
-            'params': hidden,
-            'norm': 'Spectral',
-            'scale': args.non_sign_radius,
-        }, {
-            'params': output,
-            'norm': 'Sign',
-            'norm_kwargs': {'init_val': 0.},
-            'scale': args.sign_radius,
-        }, {
-            'params': embedding,
-            'norm': 'ColNorm',
-            'norm_kwargs': {'transpose': transpose},
-            'scale': args.non_sign_radius,
-        }, {
-            'params': bias,
-            'norm': 'BiasRMS',
-            'scale': args.non_sign_radius,
-        }, {
-            'params': ln_weight,
-            'norm': 'Sign',
-            'norm_kwargs': {'init_val': 1., 'normalized': False},
-            'scale': args.non_sign_radius,
-        }]
-
-        regular = len(param_groups) if args.all_reg else 2
-        for pg in param_groups: pg |= dict(lr=args.lr, momentum=0.1)
-        for pg in param_groups[:regular]: pg |= dict(unconstrained=not args.constrained)
-        for pg in param_groups[regular:]: pg |= dict(unconstrained=True)
-        base_optimizer_cls = Scion
-
-    else:
-
-        reg = hidden + output
-        unreg = embedding + bias + ln_weight
-
-        param_groups = [dict(params=reg), dict(params=unreg)]
-        regular = len(param_groups) if args.all_reg else 1
-
-        if args.optimizer in ("Adam", "AdamW"):
-            for pg in param_groups: pg |= dict(lr=args.lr, betas=(0.9, args.beta2), eps=args.adam_epsilon)
-        elif args.optimizer == "SGD":
-            for pg in param_groups: pg |= dict(lr=args.lr, momentum=0.8 if args.orthogonal_gradients else 0.2)
-        else:
-            raise ValueError(f'Unsupported optimizer type: {args.optimizer}')
-
-        for pg in param_groups[:regular]: pg |= dict(weight_decay=args.weight_decay)
-        for pg in param_groups[regular:]: pg |= dict(weight_decay=0)
-        base_optimizer_cls = getattr(optim, args.optimizer)
+    param_group |= dict(weight_decay=args.weight_decay)
+    base_optimizer_cls = getattr(optim, args.optimizer)
 
     if args.orthogonal_gradients:
-        optimizer = OrthoGrad(param_groups, regular, base_optimizer_cls)
+        optimizer = OrthoGrad([param_group], base_optimizer_cls)
     else:
-        optimizer = base_optimizer_cls(param_groups)
+        optimizer = base_optimizer_cls([param_group])
 
     return optimizer
     
@@ -279,16 +212,7 @@ def parse_args():
                         help='Input size for the model. Default is 113.')
 
     parser.add_argument('--optimizer', type=str, default='AdamW',
-                        help='Optimizer to use. Options: AdamW, Adam, SGD, Scion. Default is AdamW.')
-
-    parser.add_argument('--constrained', action='store_true', default=False,
-                        help='Use constrained Scion instead of unconstrained Scion')
-
-    parser.add_argument('--non_sign_radius', type=float, default=1.,
-                        help='Radius for layers not configured with sign norm (i.e. embedding or hidden)')
-
-    parser.add_argument('--sign_radius', type=float, default=20.,
-                        help='Radius for layer configured with sign norm (i.e. last layer)')
+                        help='Optimizer to use. Options: AdamW, Adam, and SGD. Default is AdamW.')
 
     parser.add_argument('--loss_function', type=str, default='cross_entropy',
                         help='Loss function to use. Options: stablemax, cross_entropy. Default is cross_entropy.')
@@ -349,9 +273,6 @@ def parse_args():
 
     parser.add_argument('--use_embedding', action='store_true', default=False,
                         help='Use trainable embedding instead of one-hot encoding for MLP')
-
-    parser.add_argument('--all_reg', action='store_true', default=False,
-                        help='Weight regularization (decay or orthogonalization) for embedding, bias, and LN weight')
 
     parser.add_argument('--activation_function', type=str, default='ReLU',
                         help='Activation function for the model')

@@ -119,6 +119,8 @@ if len(specified_args.keys()) == 0:
 else:
     experiment_key = f'{args.dataset}|' + '|'.join([f'{key}-{str(specified_args[key])}' for key in specified_args.keys()])
 
+experiment_key = experiment_key[:255]  # Unfortunately most Linux systems do not allow longer directory / filenames
+
 torch.save(saved_models, 'last_run_saved_model_checkpoints.pt')
 torch.save(optimizer, 'last_optimizer.pt')
 
