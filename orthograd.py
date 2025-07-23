@@ -1,24 +1,21 @@
 import torch
 
 class OrthoGrad(torch.optim.Optimizer):
-    def __init__(self, params, base_optimizer_cls=torch.optim.SGD, **base_optimizer_args):
+    def __init__(self, params, base_optimizer_cls=torch.optim.SGD):
         """
         A wrapper optimizer that projects gradients to be orthogonal
         to the current parameters before performing an update.
 
         Args:
-            params (iterable): Iterable of parameters to optimize.
+            params (iterable): Parameter groups to optimize
             base_optimizer_cls (Optimizer class): The base optimizer class
                 (e.g., torch.optim.SGD, torch.optim.AdamW).
-            **base_optimizer_args: Arguments for the base optimizer.
-                For example, lr=1e-3, weight_decay=1e-2, etc.
         """
         # Minimal defaults for OrthoGrad itself (nothing special needed).
         defaults = {}
         super().__init__(params, defaults)
-
         # Create the wrapped/base optimizer using *our* param_groups.
-        self.base_optimizer = base_optimizer_cls(self.param_groups, **base_optimizer_args)
+        self.base_optimizer = base_optimizer_cls(self.param_groups)
 
     @staticmethod
     def _orthogonalize_gradients(params):

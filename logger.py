@@ -83,8 +83,9 @@ class MetricsLogger:
 
 
     def compute_loss(self, model, epoch, epoch_position, args, loss_function):
-        train_loss_val = loss_function(self._train_output, self._train_targets).item()
-        test_loss_val = loss_function(self._test_output, self._test_targets).item()
+        ce_dtype = getattr(torch, args.cross_entropy_dtype)
+        train_loss_val = loss_function(self._train_output, self._train_targets, dtype=ce_dtype).item()
+        test_loss_val = loss_function(self._test_output, self._test_targets, dtype=ce_dtype).item()
 
         return [
             {
@@ -107,8 +108,10 @@ class MetricsLogger:
         train_preds = self._train_output.argmax(dim=1)
         test_preds = self._test_output.argmax(dim=1)
 
-        train_acc = (train_preds == self._train_targets).float().mean().item()
-        test_acc = (test_preds == self._test_targets).float().mean().item()
+        accuracy = lambda correct: correct.sum().item() / correct.size(0)
+
+        train_acc = accuracy(train_preds == self._train_targets)
+        test_acc = accuracy(test_preds == self._test_targets)
 
         return [
             {
@@ -141,7 +144,8 @@ class MetricsLogger:
         return results
 
     def compute_zero_terms(self, model, epoch, epoch_position, args, loss_function):
-        full_loss = loss_function(self._train_output, self._train_targets, reduction="none")
+        ce_dtype = getattr(torch, args.cross_entropy_dtype)
+        full_loss = loss_function(self._train_output, self._train_targets, reduction="none", dtype=ce_dtype)
         zero_val = ((full_loss == 0).sum().item() / (full_loss.shape[0]))
         return [{
             "epoch": epoch_position,
@@ -152,12 +156,8 @@ class MetricsLogger:
         }]
 
     def compute_softmax_collapse(self, model, epoch, epoch_position, args, loss_function):
-        float_precision = {
-            64: torch.float64,
-            32: torch.float32,
-            16: torch.float16
-        }[args.softmax_precision]
-        output = self._train_output.to(float_precision)
+        ce_dtype = getattr(torch, args.cross_entropy_dtype)
+        output = self._train_output.to(ce_dtype)
         output_off = output - output.amax(dim=1, keepdim=True)
         exp_output = torch.exp(output_off)
         sum_exp = torch.sum(exp_output, dim=-1, keepdim=True)

@@ -4,14 +4,10 @@ import torch
 import torch.nn as nn
 import json
 import os
-from orthograd import OrthoGrad
-from constants import FLOAT_PRECISION_MAP
 from logger import MetricsLogger
 from torch.utils.data import DataLoader
 from utils import (evaluate, 
-                   cross_entropy_float16,
-                   cross_entropy_float32,
-                   cross_entropy_float64,
+                   softmax_cross_entropy,
                    get_specified_args,
                    get_dataset,
                    get_model,
@@ -27,7 +23,7 @@ parser, args = parse_args()
 random.seed(args.seed)
 torch.manual_seed(args.seed)
 
-train_precision = FLOAT_PRECISION_MAP[args.train_precision]
+train_dtype = getattr(torch, args.train_dtype)
 
 device = args.device
 print("Using device:", device)
@@ -46,58 +42,37 @@ args.lr = args.lr/(args.alpha**2)
 
 model = get_model(args)
 logger = MetricsLogger(args.num_epochs, args.log_frequency)
-
-base_optimizer = get_optimizer(model, args)
-
-
-if args.orthogonal_gradients:
-    base_optimizer_cls = type(base_optimizer)
-    base_state_dict = base_optimizer.state_dict()
-    
-    optimizer_args = {
-        'lr': args.lr,
-        'weight_decay': args.weight_decay
-    }
-    if args.optimizer=="SGD":
-        optimizer_args["momentum"] = 0.8
-    else:
-        betas=(0.9, args.beta2)
-    optimizer = OrthoGrad(model.parameters(), base_optimizer_cls, **optimizer_args)
-    
-    optimizer.load_state_dict(base_state_dict)
-else:
-    optimizer = base_optimizer
-
+optimizer = get_optimizer(model, args)
 
 print(args.loss_function)
-cross_entropy_function = {
-    16: cross_entropy_float16,
-    32: cross_entropy_float32,
-    64: cross_entropy_float64
-}
 
 loss_functions = {
-    "cross_entropy": cross_entropy_function[args.softmax_precision],
+    "cross_entropy": softmax_cross_entropy,
     "stablemax": stablemax_cross_entropy
 }
 loss_function = loss_functions[args.loss_function]
+ce_dtype = getattr(torch, args.cross_entropy_dtype)
 save_model_checkpoints = range(0, args.num_epochs, args.log_frequency)
 saved_models = {epoch: None for epoch in save_model_checkpoints}
 
 softmax_temperature = 1
 
 if args.full_batch:
-    all_data = train_dataset.dataset.data[train_dataset.indices].to(device).to(train_precision)
+    all_data = train_dataset.dataset.data[train_dataset.indices].to(device)
     all_targets = train_dataset.dataset.targets[train_dataset.indices].to(device).long()
 
-    all_test_data = test_dataset.dataset.data[test_dataset.indices].to(device).to(train_precision)
+    all_test_data = test_dataset.dataset.data[test_dataset.indices].to(device)
     all_test_targets = test_dataset.dataset.targets[test_dataset.indices].to(device).long()
+
+    if not (args.use_transformer or args.use_embedding):
+        all_data = all_data.to(train_dtype)
+        all_test_data = all_test_data.to(train_dtype)
 else:
     raise ValueError("Current implementation only supports full batch training.")
 
 loss = torch.inf
 start_time = time.time()
-model.to(device).to(train_precision)
+model.to(device).to(train_dtype)
 for epoch in range(args.num_epochs):
     #Shuffling the data should not matter for full batch GD, 
     #but it sometimes does matter because of floating point errors
@@ -110,7 +85,7 @@ for epoch in range(args.num_epochs):
     if args.use_transformer:
         output = output[:, -1]
     output = output*args.alpha
-    loss = loss_function(output, shuffled_targets)
+    loss = loss_function(output, shuffled_targets, dtype=ce_dtype)
     loss.backward()
     optimizer.step()
 
@@ -134,7 +109,7 @@ for epoch in range(args.num_epochs):
         start_time = time.time()
 
 model.eval().to('cpu')
-test_loss, test_accuracy = evaluate(model, test_loader)
+test_loss, test_accuracy = evaluate(model, test_loader, use_embedding=args.use_transformer or args.use_embedding)
 print(f'Test set: Average loss: {test_loss:.4f}, Accuracy: {test_accuracy:.2f}')
 args.lr = args.lr
 
@@ -143,6 +118,8 @@ if len(specified_args.keys()) == 0:
     experiment_key = f'{args.dataset}_default'
 else:
     experiment_key = f'{args.dataset}|' + '|'.join([f'{key}-{str(specified_args[key])}' for key in specified_args.keys()])
+
+experiment_key = experiment_key[:255]  # Unfortunately most Linux systems do not allow longer directory / filenames
 
 torch.save(saved_models, 'last_run_saved_model_checkpoints.pt')
 torch.save(optimizer, 'last_optimizer.pt')
