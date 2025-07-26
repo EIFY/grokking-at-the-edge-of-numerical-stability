@@ -22,8 +22,7 @@ def power_iteration(mat, v, steps=10):
         for _ in range(steps - 1):
             u = mat @ v
             v = mat.mT @ u
-            v_norm, u_norm = torch.linalg.vector_norm(v), torch.linalg.vector_norm(u)
-            v /= v_norm
+            v /= torch.linalg.vector_norm(v)
         u = mat @ v
         v = mat.mT @ u
         v_norm, u_norm = torch.linalg.vector_norm(v), torch.linalg.vector_norm(u)
